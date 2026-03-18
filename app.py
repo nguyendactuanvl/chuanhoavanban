@@ -1,68 +1,69 @@
 import streamlit as st
 import google.generativeai as genai
 from docx import Document
+from docx.shared import Pt
+import io
 
-# --- CẤU HÌNH TRANG ---
-st.set_page_config(page_title="Chuẩn hóa văn bản AI", layout="wide")
+# --- 1. CẤU HÌNH GIAO DIỆN ---
+st.set_page_config(page_title="Chuẩn hóa văn bản hành chính", layout="wide", page_icon="📝")
+
+# Hàm tạo file Word từ kết quả của AI
+def create_docx(text):
+    doc = Document()
+    style = doc.styles['Normal']
+    style.font.name = 'Times New Roman'
+    style.font.size = Pt(13)
+    
+    for line in text.split('\n'):
+        doc.add_paragraph(line)
+    
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+
+# Nút Làm mới (Reset app)
+if st.button("🔄 Làm mới trang"):
+    st.rerun()
 
 with st.sidebar:
     st.title("⚙️ Cấu hình")
     user_api_key = st.text_input("Dán Gemini API Key:", type="password")
     st.info("Lấy mã tại: aistudio.google.com/app/apikey")
 
-st.markdown("<h1 style='text-align: center;'>📄 Chuẩn Hóa Văn Bản Hành Chính AI</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #1565C0;'>📄 Chuẩn Hóa Văn Bản Hành Chính AI</h1>", unsafe_allow_html=True)
 
 if not user_api_key:
     st.warning("👈 Vui lòng nhập API Key ở bên trái!")
     st.stop()
 
-# --- HÀM KHỞI TẠO AI THÔNG MINH (TỰ QUÉT MODEL) ---
+# --- 2. KẾT NỐI AI ---
 @st.cache_resource
-def get_working_model(api_key):
+def get_ai_model(api_key):
     try:
         genai.configure(api_key=api_key)
-        # 1. Lấy danh sách tất cả model khả dụng trong tài khoản của thầy
-        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # Tự động quét model để tránh lỗi 404
+        available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        selected = 'models/gemini-1.5-flash' if 'models/gemini-1.5-flash' in available else available[0]
         
-        if not models:
-            return None, "Tài khoản không có model nào hỗ trợ tạo nội dung."
-
-        # 2. Ưu tiên chọn các bản Flash 1.5 hoặc Pro
-        target_models = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'models/gemini-pro']
-        selected = models[0] # Mặc định lấy cái đầu tiên nếu không tìm thấy cái ưu tiên
-        
-        for t in target_models:
-            if t in models:
-                selected = t
-                break
-        
-        # 3. Chỉ định System Instruction (Thầy sửa nội dung trong ngoặc này cho giống AI Studio)
-        instruct = "Bạn là chuyên gia văn thư. Hãy chuẩn hóa văn bản theo Nghị định 30/2020/NĐ-CP. Sửa lỗi chính tả, viết hoa và trình bày trang trọng."
-        
-        model = genai.GenerativeModel(model_name=selected, system_instruction=instruct)
-        return model, selected
+        instruct = "Bạn là chuyên gia văn thư. Hãy chuẩn hóa văn bản theo Nghị định 30/2020/NĐ-CP. Trình bày đúng thể thức, sửa lỗi chính tả, viết hoa."
+        return genai.GenerativeModel(model_name=selected, system_instruction=instruct), selected
     except Exception as e:
         return None, str(e)
 
-# Chạy khởi tạo
-ai_model, model_name = get_working_model(user_api_key)
+model_ai, m_name = get_ai_model(user_api_key)
 
-if ai_model is None:
-    st.error(f"❌ Lỗi: {model_name}")
-    st.stop()
-else:
-    st.sidebar.success(f"✅ Đang dùng: {model_name}")
-
-# --- GIAO DIỆN XỬ LÝ ---
+# --- 3. GIAO DIỆN XỬ LÝ ---
 col1, col2 = st.columns(2)
+
 with col1:
     st.subheader("📤 Văn bản gốc")
-    uploaded_file = st.file_uploader("Tải file .docx", type=["docx"])
-    user_text = st.text_area("Hoặc dán nội dung:", height=300)
-    btn = st.button("🚀 CHUẨN HÓA NGAY", type="primary", use_container_width=True)
+    uploaded_file = st.file_uploader("Tải lên file Word (.docx)", type=["docx"])
+    user_text = st.text_area("Dán nội dung văn bản:", height=350)
+    process_btn = st.button("🚀 CHUẨN HÓA VĂN BẢN", type="primary", use_container_width=True)
 
 with col2:
-    st.subheader("📥 Kết quả")
+    st.subheader("📥 Kết quả chuẩn hóa")
+    
     input_data = ""
     if uploaded_file:
         doc = Document(uploaded_file)
@@ -70,15 +71,27 @@ with col2:
     elif user_text:
         input_data = user_text
 
-    if btn:
+    if process_btn:
         if input_data:
-            with st.spinner("Đang xử lý..."):
+            with st.spinner("AI đang xử lý..."):
                 try:
-                    # Giao tiếp với AI
-                    response = ai_model.generate_content(input_data, generation_config={"temperature": 0.1})
+                    response = model_ai.generate_content(input_data, generation_config={"temperature": 0.2})
+                    result_text = response.text
+                    st.session_state['last_result'] = result_text
+                    
                     st.success("Hoàn thành!")
-                    st.write(response.text)
+                    st.markdown(f'<div style="background:#f9f9f9; padding:15px; border-radius:10px; border:1px solid #ddd; color:black; font-family:Times New Roman;">{result_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
                 except Exception as ex:
-                    st.error(f"Lỗi khi tạo nội dung: {str(ex)}")
+                    st.error(f"Lỗi: {ex}")
         else:
-            st.warning("Vui lòng nhập liệu!")
+            st.warning("Vui lòng nhập nội dung!")
+
+    # Hiển thị các nút chức năng nếu đã có kết quả
+    if 'last_result' in st.session_state:
+        st.divider()
+        c1, c2 = st.columns(2)
+        with c1:
+            st.download_button("📥 Tải xuống Word", data=create_docx(st.session_state['last_result']), file_name="van_ban_chuan_hoa.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+        with c2:
+            # Nút copy nhanh
+            st.button("📋 Sao chép kết quả", on_click=lambda: st.write("Đã sao chép! (Vui lòng quét khối và Ctrl+C)"))
