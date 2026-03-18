@@ -2,85 +2,101 @@ import streamlit as st
 import google.generativeai as genai
 from docx import Document
 
-# --- CẤU HÌNH ---
-st.set_page_config(page_title="Chuẩn hóa văn bản AI", layout="wide")
+# --- CẤU HÌNH GIAO DIỆN ---
+st.set_page_config(page_title="Chuẩn hóa văn bản hành chính", layout="wide", page_icon="📝")
+
+# CSS để giao diện giống AI Studio hơn (bo tròn, màu sắc chuyên nghiệp)
+st.markdown("""
+    <style>
+    .stTextArea textarea { font-family: 'Times New Roman', serif; font-size: 16px; }
+    .result-box { background-color: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid #1E88E5; color: #333; }
+    </style>
+    """, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.title("🔑 Cấu hình")
-    user_api_key = st.text_input("Nhập Gemini API Key:", type="password")
+    st.title("⚙️ Cấu hình App")
+    user_api_key = st.text_input("Dán Gemini API Key:", type="password")
     st.info("Lấy mã tại: aistudio.google.com/app/apikey")
+    st.divider()
+    st.write("👨‍🏫 **Tác giả:** Nguyễn Đắc Tuấn")
 
-st.markdown("<h1 style='text-align: center;'>📄 Chuẩn Hóa Văn Bản Hành Chính</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #1565C0;'>📄 Chuẩn Hóa Văn Bản Hành Chính AI</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Tự động sửa lỗi chính tả, trình bày theo Nghị định 30/2020/NĐ-CP</p>", unsafe_allow_html=True)
 
 if not user_api_key:
-    st.warning("👈 Vui lòng nhập API Key ở bên trái!")
+    st.warning("👈 Vui lòng nhập API Key ở bên trái để bắt đầu!")
     st.stop()
 
-# --- HÀM KẾT NỐI AI THÔNG MINH ---
+# --- CẤU HÌNH MODEL (BÍ QUYẾT GIỐNG AI STUDIO) ---
 @st.cache_resource
-def initialize_ai(api_key):
+def load_ai_studio_model(api_key):
     try:
         genai.configure(api_key=api_key)
-        # Lấy danh sách tất cả model mà Key này được phép dùng
-        available_models = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                available_models.append(m.name)
         
-        if not available_models:
-            return None, "Không tìm thấy model nào hỗ trợ generateContent."
-
-        # Thứ tự ưu tiên chọn model
-        priority = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'models/gemini-pro']
-        selected_model = available_models[0] # Mặc định lấy cái đầu tiên
+        # ĐÂY LÀ PHẦN QUAN TRỌNG: Đưa nội dung từ mục 'System Instructions' của bạn vào đây
+        system_instruction = """
+        Bạn là một chuyên gia văn thư và pháp chế tại Việt Nam.
+        Nhiệm vụ: Chuẩn hóa mọi văn bản hành chính được cung cấp.
+        Quy tắc:
+        1. Tuân thủ tuyệt đối Nghị định 30/2020/NĐ-CP về thể thức văn bản.
+        2. Viết hoa đúng các danh từ riêng, chức vụ, đơn vị hành chính.
+        3. Chỉnh sửa câu văn mạch lạc, trang trọng, chuyên nghiệp.
+        4. Định dạng đầu ra sạch sẽ, rõ ràng các mục: Quốc hiệu, Tiêu ngữ, Tên văn bản, Nội dung...
+        """
         
-        for p in priority:
-            if p in available_models:
-                selected_model = p
-                break
-        
-        return genai.GenerativeModel(selected_model), selected_model
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction=system_instruction, # Kích hoạt bộ não chuyên gia
+            generation_config={
+                "temperature": 0.2, # Giảm sáng tạo để tăng độ chính xác văn bản
+                "top_p": 0.95,
+                "max_output_tokens": 8192,
+            }
+        )
+        return model
     except Exception as e:
-        return None, str(e)
+        return str(e)
 
-# Khởi tạo
-model, model_info = initialize_ai(user_api_key)
+ai_model = load_ai_studio_model(user_api_key)
 
-if model is None:
-    st.error(f"❌ Lỗi hệ thống: {model_info}")
+if isinstance(ai_model, str):
+    st.error(f"Lỗi kết nối: {ai_model}")
     st.stop()
-else:
-    st.sidebar.success(f"✅ Đang dùng: {model_info}")
 
-# --- GIAO DIỆN XỬ LÝ ---
+# --- XỬ LÝ DỮ LIỆU ---
 col1, col2 = st.columns(2)
+
 with col1:
     st.subheader("📤 Văn bản gốc")
-    uploaded_file = st.file_uploader("Tải file .docx", type=["docx"])
-    user_text = st.text_area("Hoặc dán văn bản:", height=300)
-    process_btn = st.button("🚀 Chuẩn hóa ngay", type="primary", use_container_width=True)
-
-with col2:
-    st.subheader("📥 Kết quả")
-    input_data = ""
-    if uploaded_file:
-        try:
+    uploaded_file = st.file_uploader("Tải file Word", type=["docx"])
+    user_text = st.text_area("Hoặc dán nội dung vào đây:", height=350, placeholder="Dán văn bản hành chính cần sửa...")
+    
+    if st.button("🚀 BẮT ĐẦU CHUẨN HÓA", type="primary", use_container_width=True):
+        input_data = ""
+        if uploaded_file:
             doc = Document(uploaded_file)
             input_data = "\n".join([p.text for p in doc.paragraphs])
-        except:
-            st.error("Không thể đọc file Word này.")
-    elif user_text:
-        input_data = user_text
-
-    if process_btn:
+        elif user_text:
+            input_data = user_text
+            
         if input_data:
-            with st.spinner("AI đang xử lý..."):
+            with st.spinner("Đang chuẩn hóa theo Nghị định 30..."):
                 try:
-                    # Gọi trực tiếp model đã được khởi tạo thành công
-                    response = model.generate_content(f"Chuẩn hóa đoạn văn bản sau đúng quy định Nghị định 30/2020/NĐ-CP: \n\n{input_data}")
-                    st.success("Hoàn thành!")
-                    st.write(response.text)
+                    # Gửi yêu cầu cho AI
+                    response = ai_model.generate_content(input_data)
+                    st.session_state['result'] = response.text
                 except Exception as ex:
-                    st.error(f"Lỗi khi xử lý: {str(ex)}")
+                    st.error(f"Lỗi xử lý: {ex}")
         else:
             st.warning("Vui lòng nhập nội dung!")
+
+with col2:
+    st.subheader("📥 Kết quả chuyên gia")
+    if 'result' in st.session_state:
+        # Hiển thị kết quả trong khung đẹp
+        st.markdown(f'<div class="result-box">{st.session_state["result"].replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+        
+        st.divider()
+        st.download_button("💾 Tải file kết quả (.txt)", st.session_state['result'], "van_ban_chuan_hoa.txt")
+    else:
+        st.info("Kết quả sẽ hiển thị tại đây sau khi bạn nhấn nút chuẩn hóa.")
