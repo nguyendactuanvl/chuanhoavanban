@@ -8,7 +8,7 @@ st.set_page_config(page_title="Chuẩn hóa văn bản hành chính", layout="wi
 st.markdown("<h1 style='text-align: center; color: #1E88E5;'>📄 Chuẩn Hóa Văn Bản Hành Chính</h1>", unsafe_allow_html=True)
 
 # 2. Cấu hình API (Dán Key của bạn vào đây)
-API_KEY = "DÁN_MÃ_API_KEY_CỦA_BẠN_VÀO_ĐÂY"
+API_KEY = "AIzaSyA00LWbDGphFpsvUWdQOVAJ6K_15ckEUKg"
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
@@ -25,7 +25,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("📤 Văn bản gốc")
-    uploaded_file = st.file_uploader("Tải lên file Word (.doc hoặc .docx)", type=["doc" "docx"])
+    uploaded_file = st.file_uploader("Tải lên file Word (.docx)", type=["docx"])
     
     user_content = st.text_area("HOẶC dán nội dung văn bản vào đây:", height=250)
     btn_run = st.button("🚀 Chuẩn hóa văn bản", use_container_width=True)
