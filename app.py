@@ -1,48 +1,49 @@
 import streamlit as st
 import google.generativeai as genai
 from docx import Document
-from docx.shared import Pt, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
 
-# --- 1. CẤU HÌNH GIAO DIỆN ---
-st.set_page_config(page_title="Chuẩn hóa văn bản hành chính", layout="wide")
+# --- 1. CẤU HÌNH TRANG & GIAO DIỆN ---
+st.set_page_config(page_title="Chuẩn hóa văn bản hành chính", layout="wide", page_icon="📝")
 
-# Hàm tạo file Word nâng cao (Xử lý định dạng chuyên nghiệp hơn)
-def create_docx(text):
-    doc = Document()
-    style = doc.styles['Normal']
-    style.font.name = 'Times New Roman'
-    style.font.size = Pt(13)
-    
-    for line in text.split('\n'):
-        p = doc.add_paragraph(line)
-        # Nếu là Quốc hiệu hoặc Tên cơ quan (giả định dựa trên nội dung), có thể căn giữa
-        if "CỘNG HÒA XÃ HỘI" in line or "Độc lập - Tự do" in line or "TỜ TRÌNH" in line:
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            
-    bio = io.BytesIO()
-    doc.save(bio)
-    return bio.getvalue()
-
-st.markdown("<h1 style='text-align: center;'>📄 Chuẩn Hóa Văn Bản Hành Chính AI</h1>", unsafe_allow_html=True)
+# Ép hiển thị font Times New Roman và định dạng bảng HTML sạch sẽ
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
+    .main-content {
+        font-family: 'Times New Roman', serif;
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        border: 1px solid #dee2e6;
+        color: black;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 with st.sidebar:
     st.title("⚙️ Cấu hình")
     user_api_key = st.text_input("Dán Gemini API Key:", type="password")
+    st.info("Lấy mã tại: aistudio.google.com/app/apikey")
+    st.divider()
+    if st.button("🔄 Làm mới ứng dụng"):
+        st.rerun()
+
+st.markdown("<h1 style='text-align: center; color: #1565C0;'>📄 Chuẩn Hóa Văn Bản Hành Chính AI</h1>", unsafe_allow_html=True)
 
 if not user_api_key:
-    st.warning("👈 Vui lòng nhập API Key!")
+    st.warning("👈 Vui lòng nhập API Key ở bên trái để bắt đầu!")
     st.stop()
 
-# --- 2. CHỈ DẪN HỆ THỐNG CỰC KỲ CHI TIẾT ---
+# --- 2. CẤU HÌNH AI (LINH HỒN TỪ AI STUDIO) ---
 @st.cache_resource
-def get_model(api_key):
-    genai.configure(api_key=api_key)
-    
-    # BÍ QUYẾT Ở ĐÂY: Chỉ dẫn AI cách dàn trang theo hàng và cột
-    instruct = """
-    `Bạn là một chuyên gia ngôn ngữ học và chuyên gia văn thư lưu trữ tại Việt Nam.
+def load_ai_studio_model(api_key):
+    try:
+        genai.configure(api_key=api_key)
+        
+        # ĐÂY LÀ ĐOẠN "PROMPT" THẦY CHỤP TRONG ẢNH
+        instruct = """
+Bạn là một chuyên gia ngôn ngữ học và chuyên gia văn thư lưu trữ tại Việt Nam.
 Nhiệm vụ của bạn là:
 1. Sửa lỗi chính tả, ngữ pháp, dấu câu và cải thiện văn phong cho đoạn văn bản gốc.
 2. Chuẩn hóa đoạn văn bản theo đúng quy định về thể thức văn bản hành chính của Ban Quản lý dự án Đầu tư xây dựng khu vực 1 thành phố Huế và cập nhật theo Nghị định 187/2025/NĐ-CP.
@@ -63,7 +64,7 @@ MẪU PHẦN ĐẦU VĂN BẢN:
       UBND THÀNH PHỐ HUẾ<br>
       <b>BAN QUẢN LÝ DỰ ÁN<br>ĐẦU TƯ XÂY DỰNG KHU VỰC 1</b><br>
       <hr style="width: 40%; border-top: 1px solid black; margin: 5px auto;">
-      Số: .../QĐ-BQLKV1 <!-- Hoặc ký hiệu tương ứng: /CV-BQLKV1, /TTr-BQLKV1... -->
+      Số: .../QĐ-BQLKV1
     </td>
     <td style="width: 60%; text-align: center; vertical-align: top;">
       <b style="font-size: 13pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
@@ -74,7 +75,7 @@ MẪU PHẦN ĐẦU VĂN BẢN:
   </tr>
 </table>
 
-MẪU PHẦN CUỐI VĂN BẢN (Nơi nhận và Chữ ký):
+MẪU PHẦN CUỐI VĂN BẢN:
 <table style="width: 100%; border: none; font-family: 'Times New Roman', serif;">
   <tr>
     <td style="width: 50%; vertical-align: top;">
@@ -94,36 +95,53 @@ MẪU PHẦN CUỐI VĂN BẢN (Nơi nhận và Chữ ký):
 
 Chỉ trả về mã HTML đã được chuẩn hóa, không giải thích thêm. 
 QUAN TRỌNG: 
-1. KHÔNG bọc kết quả trong block code markdown (ví dụ: \`\`\`html ... \`\`\`), chỉ trả về mã HTML thuần túy.
-2. KHÔNG trả về toàn bộ trang HTML (tuyệt đối không dùng thẻ <!DOCTYPE html>, <html>, <head>, <body>). Chỉ trả về các thẻ HTML chứa nội dung văn bản (như <div>, <table>, <p>, <b>, <i>...).
-    """
-    
-    available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    selected = 'models/gemini-1.5-flash' if 'models/gemini-1.5-flash' in available else available[0]
-    return genai.GenerativeModel(model_name=selected, system_instruction=instruct)
+1. KHÔNG bọc kết quả trong block code markdown.
+2. KHÔNG trả về thẻ <html>, <body>. Chỉ trả về mã HTML nội dung.
+"""
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction=instruct
+        )
+        return model
+    except Exception as e:
+        return str(e)
 
-model_ai = get_model(user_api_key)
+ai_model = load_ai_studio_model(user_api_key)
 
-# --- 3. XỬ LÝ ---
+# --- 3. XỬ LÝ VĂN BẢN ---
 col1, col2 = st.columns(2)
+
 with col1:
-    uploaded_file = st.file_uploader("Tải file .docx", type=["docx"])
-    user_text = st.text_area("Dán nội dung:", height=400)
-    process_btn = st.button("🚀 CHUẨN HÓA NGAY", type="primary", use_container_width=True)
+    st.subheader("📤 Văn bản gốc")
+    uploaded_file = st.file_uploader("Tải lên file Word (.docx)", type=["docx"])
+    user_text = st.text_area("Dán nội dung cần sửa:", height=400)
+    process_btn = st.button("🚀 CHUẨN HÓA VĂN BẢN", type="primary", use_container_width=True)
 
 with col2:
-    if process_btn:
-        input_data = ""
-        if uploaded_file:
-            doc = Document(uploaded_file)
-            input_data = "\n".join([p.text for p in doc.paragraphs])
-        else:
-            input_data = user_text
+    st.subheader("📥 Kết quả chuyên gia")
+    
+    input_data = ""
+    if uploaded_file:
+        doc = Document(uploaded_file)
+        input_data = "\n".join([p.text for p in doc.paragraphs])
+    elif user_text:
+        input_data = user_text
 
+    if process_btn:
         if input_data:
-            with st.spinner("Đang chuẩn hóa..."):
-                response = model_ai.generate_content(input_data, generation_config={"temperature": 0.1})
-                st.session_state['res'] = response.text
-                st.markdown(f"```\n{response.text}\n```") # Hiển thị dạng code để dễ copy đúng khoảng cách
-                
-                st.download_button("📥 Tải xuống Word", create_docx(response.text), "van_ban.docx", use_container_width=True)
+            with st.spinner("Đang xử lý đúng theo AI Studio..."):
+                try:
+                    response = ai_model.generate_content(input_data)
+                    st.session_state['html_result'] = response.text
+                except Exception as ex:
+                    st.error(f"Lỗi: {ex}")
+        else:
+            st.warning("Vui lòng nhập nội dung!")
+
+    # Hiển thị kết quả dạng HTML để giữ định dạng bảng
+    if 'html_result' in st.session_state:
+        st.markdown(f'<div class="main-content">{st.session_state["html_result"]}</div>', unsafe_allow_html=True)
+        
+        st.divider()
+        st.success("💡 Mẹo: Hãy bôi đen kết quả trên và Dán (Paste) vào Google Docs hoặc Word để giữ nguyên bảng 2 cột.")
+        st.link_button("🌐 Mở nhanh Google Docs", "https://docs.new", use_container_width=True)
