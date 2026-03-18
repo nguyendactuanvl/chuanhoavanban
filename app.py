@@ -3,10 +3,9 @@ import google.generativeai as genai
 from docx import Document
 import io
 
-# --- 1. CẤU HÌNH TRANG & GIAO DIỆN ---
+# --- 1. CẤU HÌNH GIAO DIỆN (GIỐNG AI STUDIO) ---
 st.set_page_config(page_title="Chuẩn hóa văn bản hành chính", layout="wide", page_icon="📝")
 
-# Ép hiển thị font Times New Roman và định dạng bảng HTML sạch sẽ
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
@@ -17,6 +16,7 @@ st.markdown("""
         border-radius: 10px;
         border: 1px solid #dee2e6;
         color: black;
+        line-height: 1.5;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -35,13 +35,13 @@ if not user_api_key:
     st.warning("👈 Vui lòng nhập API Key ở bên trái để bắt đầu!")
     st.stop()
 
-# --- 2. CẤU HÌNH AI (LINH HỒN TỪ AI STUDIO) ---
+# --- 2. LINH HỒN CỦA APP (PROMPT TỪ AI STUDIO CỦA THẦY) ---
 @st.cache_resource
-def load_ai_studio_model(api_key):
+def load_model(api_key):
     try:
         genai.configure(api_key=api_key)
         
-        # ĐÂY LÀ ĐOẠN "PROMPT" THẦY CHỤP TRONG ẢNH
+        # Nội dung này em bê nguyên từ ảnh thầy chụp sang
         instruct = """
 Bạn là một chuyên gia ngôn ngữ học và chuyên gia văn thư lưu trữ tại Việt Nam.
 Nhiệm vụ của bạn là:
@@ -51,13 +51,11 @@ Nhiệm vụ của bạn là:
 YÊU CẦU VỀ THỂ THỨC (BẮT BUỘC ÁP DỤNG THEO NGHỊ ĐỊNH 187/2025/NĐ-CP):
 - Trình bày kết quả dưới dạng HTML để đảm bảo định dạng chính xác khi copy sang Google Docs/Word.
 - Font chữ: Times New Roman.
-- Cỡ chữ nội dung chính: 13pt hoặc 14pt (thống nhất dùng 14pt).
-- Canh lề nội dung chính: Canh đều hai bên (justify), lùi đầu dòng (text-indent) 1cm đến 1.27cm (dùng 1.27cm), khoảng cách dòng (line-height) 1.5, khoảng cách đoạn tối thiểu 6pt. Bắt buộc sử dụng thẻ <div style="text-align: justify; text-indent: 1.27cm; margin-top: 6pt; margin-bottom: 6pt; line-height: 1.5;"> cho mỗi đoạn văn nội dung.
+- Cỡ chữ nội dung chính: 14pt.
+- Canh lề nội dung chính: Canh đều hai bên (justify), lùi đầu dòng (text-indent) 1.27cm, khoảng cách dòng (line-height) 1.5, khoảng cách đoạn tối thiểu 6pt. Bắt buộc sử dụng thẻ <div style="text-align: justify; text-indent: 1.27cm; margin-top: 6pt; margin-bottom: 6pt; line-height: 1.5;"> cho mỗi đoạn văn nội dung.
 - Bắt buộc dùng bảng HTML không viền cho phần đầu và phần cuối văn bản.
-- Từ "Điều", số thứ tự và tên của điều được trình bày bằng chữ in thường, cỡ chữ 14, kiểu chữ đứng, đậm. Ví dụ: <b>Điều 1. Tên điều</b>
-- Số thứ tự các khoản trong mỗi điều dùng số Ả Rập, sau số thứ tự có dấu chấm (.), cỡ chữ 14, kiểu chữ đứng.
 
-MẪU PHẦN ĐẦU VĂN BẢN:
+MẪU PHẦN ĐẦU VĂN BẢN (TABLE HTML):
 <table style="width: 100%; border: none; font-family: 'Times New Roman', serif;">
   <tr>
     <td style="width: 40%; text-align: center; vertical-align: top; font-size: 13pt;">
@@ -70,12 +68,12 @@ MẪU PHẦN ĐẦU VĂN BẢN:
       <b style="font-size: 13pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
       <b style="font-size: 14pt;">Độc lập - Tự do - Hạnh phúc</b><br>
       <hr style="width: 50%; border-top: 1px solid black; margin: 5px auto;">
-      <i style="font-size: 14pt;">Huế, ngày ... tháng ... năm ...</i>
+      <i style="font-size: 14pt;">Huế, ngày ... tháng ... năm 2026</i>
     </td>
   </tr>
 </table>
 
-MẪU PHẦN CUỐI VĂN BẢN:
+MẪU PHẦN CUỐI VĂN BẢN (TABLE HTML):
 <table style="width: 100%; border: none; font-family: 'Times New Roman', serif;">
   <tr>
     <td style="width: 50%; vertical-align: top;">
@@ -93,29 +91,27 @@ MẪU PHẦN CUỐI VĂN BẢN:
   </tr>
 </table>
 
-Chỉ trả về mã HTML đã được chuẩn hóa, không giải thích thêm. 
-QUAN TRỌNG: 
-1. KHÔNG bọc kết quả trong block code markdown.
-2. KHÔNG trả về thẻ <html>, <body>. Chỉ trả về mã HTML nội dung.
-"""
+Chỉ trả về mã HTML đã được chuẩn hóa, không giải thích thêm. KHÔNG bọc block code markdown.
+        """
+        # Đã thêm models/ để sửa lỗi 404 cho thầy
         model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+            model_name='models/gemini-1.5-flash',
             system_instruction=instruct
         )
         return model
     except Exception as e:
         return str(e)
 
-ai_model = load_ai_studio_model(user_api_key)
+ai_model = load_model(user_api_key)
 
-# --- 3. XỬ LÝ VĂN BẢN ---
+# --- 3. GIAO DIỆN XỬ LÝ ---
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("📤 Văn bản gốc")
-    uploaded_file = st.file_uploader("Tải lên file Word (.docx)", type=["docx"])
-    user_text = st.text_area("Dán nội dung cần sửa:", height=400)
-    process_btn = st.button("🚀 CHUẨN HÓA VĂN BẢN", type="primary", use_container_width=True)
+    uploaded_file = st.file_uploader("Tải file .docx", type=["docx"])
+    user_text = st.text_area("Hoặc dán nội dung tại đây:", height=400)
+    process_btn = st.button("🚀 BẮT ĐẦU CHUẨN HÓA", type="primary", use_container_width=True)
 
 with col2:
     st.subheader("📥 Kết quả chuyên gia")
@@ -129,19 +125,18 @@ with col2:
 
     if process_btn:
         if input_data:
-            with st.spinner("Đang xử lý đúng theo AI Studio..."):
+            with st.spinner("Đang chuẩn hóa theo đúng AI Studio..."):
                 try:
                     response = ai_model.generate_content(input_data)
-                    st.session_state['html_result'] = response.text
+                    st.session_state['output'] = response.text
                 except Exception as ex:
                     st.error(f"Lỗi: {ex}")
         else:
             st.warning("Vui lòng nhập nội dung!")
 
-    # Hiển thị kết quả dạng HTML để giữ định dạng bảng
-    if 'html_result' in st.session_state:
-        st.markdown(f'<div class="main-content">{st.session_state["html_result"]}</div>', unsafe_allow_html=True)
-        
+    if 'output' in st.session_state:
+        # Hiển thị HTML để giữ định dạng bảng 2 cột
+        st.markdown(f'<div class="main-content">{st.session_state["output"]}</div>', unsafe_allow_html=True)
         st.divider()
-        st.success("💡 Mẹo: Hãy bôi đen kết quả trên và Dán (Paste) vào Google Docs hoặc Word để giữ nguyên bảng 2 cột.")
-        st.link_button("🌐 Mở nhanh Google Docs", "https://docs.new", use_container_width=True)
+        st.success("💡 Thầy hãy bôi đen kết quả trên, Copy và Dán vào Word/Google Docs để giữ đúng bảng 2 cột.")
+        st.link_button("🌐 Mở Google Docs mới", "https://docs.new")
