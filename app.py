@@ -1,6 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 from docx import Document
+from docx.shared import Pt, Inches
+import io
 import re
 
 # --- 1. CẤU HÌNH GIAO DIỆN ---
@@ -17,17 +19,38 @@ st.markdown("""
         line-height: 1.5;
         border: 1px solid #ccc;
         box-shadow: 5px 5px 15px rgba(0,0,0,0.1);
-        min-height: 800px;
-        margin: auto;
+        min-height: 600px;
+        margin-bottom: 20px;
     }
-    /* Đảm bảo chữ bên trong luôn đen và rõ */
-    .to-giay-a4 div, .to-giay-a4 p, .to-giay-a4 td, .to-giay-a4 b {
-        color: black !important;
-    }
-    table { width: 100%; border-collapse: collapse; border: none !important; }
-    td { border: none !important; vertical-align: top; }
+    .to-giay-a4 * { color: black !important; }
     </style>
     """, unsafe_allow_html=True)
+
+# Hàm xử lý tạo file Word từ nội dung AI
+def create_word_file(html_text):
+    doc = Document()
+    # Chỉnh lề chuẩn Nghị định
+    for section in doc.sections:
+        section.top_margin = Inches(0.79)
+        section.bottom_margin = Inches(0.79)
+        section.left_margin = Inches(1.18)
+        section.right_margin = Inches(0.59)
+    
+    # Loại bỏ các thẻ HTML để lấy text sạch đưa vào Word
+    clean_text = re.sub(r'<[^>]+>', '', html_text)
+    
+    style = doc.styles['Normal']
+    style.font.name = 'Times New Roman'
+    style.font.size = Pt(14)
+    
+    for line in clean_text.split('\n'):
+        if line.strip():
+            p = doc.add_paragraph(line.strip())
+            p.paragraph_format.line_spacing = 1.5
+    
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
 
 with st.sidebar:
     st.title("⚙️ Cấu hình App")
@@ -49,8 +72,8 @@ def get_model(api_key):
         models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         name = 'models/gemini-1.5-flash' if 'models/gemini-1.5-flash' in models else models[0]
         
-        # Chỉ dẫn cực kỳ nghiêm ngặt để AI không bọc code lung tung
-        instruct = "Bạn là chuyên gia văn thư. Hãy chuẩn hóa văn bản hành chính. TRẢ VỀ DUY NHẤT MÃ HTML. TUYỆT ĐỐI KHÔNG dùng dấu ``` hay ghi chữ 'html'. Chỉ trả về nội dung bên trong văn bản."
+        # Chỉ dẫn ép AI làm đúng vai trò
+        instruct = "Bạn là chuyên gia văn thư. Hãy chuẩn hóa văn bản hành chính theo Nghị định 187. Trả về mã HTML đơn giản. Không dùng dấu bọc code."
         return genai.GenerativeModel(model_name=name, system_instruction=instruct)
     except Exception as e:
         return str(e)
@@ -63,11 +86,11 @@ col1, col2 = st.columns([1, 1.2])
 with col1:
     st.subheader("📤 Văn bản gốc")
     uploaded_file = st.file_uploader("Tải file .docx", type=["docx"])
-    user_text = st.text_area("Dán nội dung:", height=450)
-    process_btn = st.button("🚀 BẮT ĐẦU CHUẨN HÓA", type="primary", use_container_width=True)
+    user_text = st.text_area("Dán nội dung:", height=400)
+    process_btn = st.button("🚀 CHUẨN HÓA VĂN BẢN", type="primary", use_container_width=True)
 
 with col2:
-    st.subheader("📥 Kết quả thực tế")
+    st.subheader("📥 Kết quả chuyên gia")
     input_data = ""
     if uploaded_file:
         doc_in = Document(uploaded_file)
@@ -77,17 +100,26 @@ with col2:
 
     if process_btn:
         if input_data:
-            with st.spinner("Đang loại bỏ mã code và dàn trang..."):
+            with st.spinner("Đang chuẩn hóa..."):
                 try:
                     response = ai_model.generate_content(input_data)
-                    raw_html = response.text
-                    
-                    # Mẹo kỹ thuật: Loại bỏ các dấu bọc code ```html nếu AI lỡ tay thêm vào
-                    clean_html = re.sub(r'```html|```', '', raw_html)
-                    
-                    # HIỂN THỊ THÀNH VĂN BẢN THẬT
-                    st.markdown(f'<div class="to-giay-a4">{clean_html}</div>', unsafe_allow_html=True)
-                    
-                    st.success("✅ Đã xong! Thầy hãy bôi đen văn bản trên và dán vào Word.")
+                    clean_res = re.sub(r'```html|```', '', response.text)
+                    st.session_state['final_res'] = clean_res
                 except Exception as ex:
-                    st.error(f"Lỗi hiển thị: {ex}")
+                    st.error(f"Lỗi: {ex}")
+
+    if 'final_res' in st.session_state:
+        # 1. Hiển thị tờ giấy A4 để xem trước
+        st.markdown(f'<div class="to-giay-a4">{st.session_state["final_res"]}</div>', unsafe_allow_html=True)
+        
+        # 2. NÚT TẢI VỀ FILE WORD (ĐÃ THÊM LẠI)
+        st.divider()
+        word_data = create_word_file(st.session_state['final_res'])
+        st.download_button(
+            label="📥 TẢI VỀ FILE WORD (.DOCX)",
+            data=word_data,
+            file_name="van_ban_da_chuan_hoa.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+        st.success("✅ Đã tạo xong nút tải về! Thầy nhấn nút xanh ở trên để lưu file nhé.")
