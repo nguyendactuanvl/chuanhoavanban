@@ -10,7 +10,7 @@ st.markdown("<h1 style='text-align: center; color: #1E88E5;'>📄 Chuẩn Hóa V
 # 2. Cấu hình API (Dán Key của bạn vào đây)
 API_KEY = "AIzaSyA00LWbDGphFpsvUWdQOVAJ6K_15ckEUKg"
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
 
 # Hàm để đọc file Docx
 def read_docx(file):
