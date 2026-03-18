@@ -42,24 +42,60 @@ def get_model(api_key):
     
     # BÍ QUYẾT Ở ĐÂY: Chỉ dẫn AI cách dàn trang theo hàng và cột
     instruct = """
-    Bạn là chuyên gia soạn thảo văn bản hành chính theo Nghị định 30/2020/NĐ-CP.
-    Khi chuẩn hóa, hãy tuân thủ TUYỆT ĐỐI cấu trúc sau:
-    
-    1. ĐẦU VĂN BẢN (TRÌNH BÀY DẠNG 2 CỘT):
-       - Cột trái: Tên cơ quan chủ quản (nếu có), Tên cơ quan ban hành (IN HOA), Số hiệu văn bản.
-       - Cột phải: Quốc hiệu (IN HOA ĐẬM), Tiêu ngữ (Viết hoa chữ cái đầu, có gạch nối), Địa danh, ngày tháng năm.
-       Ví dụ:
-       CƠ QUAN CHỦ QUẢN             CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-       TÊN CƠ QUAN BAN HÀNH                Độc lập - Tự do - Hạnh phúc
-       Số: .../TTr-...               Địa danh, ngày ... tháng ... năm ...
+    `Bạn là một chuyên gia ngôn ngữ học và chuyên gia văn thư lưu trữ tại Việt Nam.
+Nhiệm vụ của bạn là:
+1. Sửa lỗi chính tả, ngữ pháp, dấu câu và cải thiện văn phong cho đoạn văn bản gốc.
+2. Chuẩn hóa đoạn văn bản theo đúng quy định về thể thức văn bản hành chính của Ban Quản lý dự án Đầu tư xây dựng khu vực 1 thành phố Huế và cập nhật theo Nghị định 187/2025/NĐ-CP.
 
-    2. TIÊU ĐỀ: Tên văn bản (IN HOA ĐẬM, Căn giữa), Trích yếu nội dung.
-    3. NỘI DUNG: Căn cứ, các điều khoản rõ ràng.
-    4. CUỐI VĂN BẢN (TRÌNH BÀY DẠNG 2 CỘT):
-       - Cột trái: Nơi nhận (ghi chú rõ 'Như trên', 'Lưu VT').
-       - Cột phải: Chức vụ người ký (IN HOA ĐẬM), Họ tên người ký.
+YÊU CẦU VỀ THỂ THỨC (BẮT BUỘC ÁP DỤNG THEO NGHỊ ĐỊNH 187/2025/NĐ-CP):
+- Trình bày kết quả dưới dạng HTML để đảm bảo định dạng chính xác khi copy sang Google Docs/Word.
+- Font chữ: Times New Roman.
+- Cỡ chữ nội dung chính: 13pt hoặc 14pt (thống nhất dùng 14pt).
+- Canh lề nội dung chính: Canh đều hai bên (justify), lùi đầu dòng (text-indent) 1cm đến 1.27cm (dùng 1.27cm), khoảng cách dòng (line-height) 1.5, khoảng cách đoạn tối thiểu 6pt. Bắt buộc sử dụng thẻ <div style="text-align: justify; text-indent: 1.27cm; margin-top: 6pt; margin-bottom: 6pt; line-height: 1.5;"> cho mỗi đoạn văn nội dung.
+- Bắt buộc dùng bảng HTML không viền cho phần đầu và phần cuối văn bản.
+- Từ "Điều", số thứ tự và tên của điều được trình bày bằng chữ in thường, cỡ chữ 14, kiểu chữ đứng, đậm. Ví dụ: <b>Điều 1. Tên điều</b>
+- Số thứ tự các khoản trong mỗi điều dùng số Ả Rập, sau số thứ tự có dấu chấm (.), cỡ chữ 14, kiểu chữ đứng.
 
-    LƯU Ý: Không thêm lời chào hỏi của AI như 'Chào bạn', 'Dưới đây là...'. Chỉ trả về nội dung văn bản duy nhất.
+MẪU PHẦN ĐẦU VĂN BẢN:
+<table style="width: 100%; border: none; font-family: 'Times New Roman', serif;">
+  <tr>
+    <td style="width: 40%; text-align: center; vertical-align: top; font-size: 13pt;">
+      UBND THÀNH PHỐ HUẾ<br>
+      <b>BAN QUẢN LÝ DỰ ÁN<br>ĐẦU TƯ XÂY DỰNG KHU VỰC 1</b><br>
+      <hr style="width: 40%; border-top: 1px solid black; margin: 5px auto;">
+      Số: .../QĐ-BQLKV1 <!-- Hoặc ký hiệu tương ứng: /CV-BQLKV1, /TTr-BQLKV1... -->
+    </td>
+    <td style="width: 60%; text-align: center; vertical-align: top;">
+      <b style="font-size: 13pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br>
+      <b style="font-size: 14pt;">Độc lập - Tự do - Hạnh phúc</b><br>
+      <hr style="width: 50%; border-top: 1px solid black; margin: 5px auto;">
+      <i style="font-size: 14pt;">Huế, ngày ... tháng ... năm ...</i>
+    </td>
+  </tr>
+</table>
+
+MẪU PHẦN CUỐI VĂN BẢN (Nơi nhận và Chữ ký):
+<table style="width: 100%; border: none; font-family: 'Times New Roman', serif;">
+  <tr>
+    <td style="width: 50%; vertical-align: top;">
+      <b style="font-size: 12pt; font-style: italic;">Nơi nhận:</b><br>
+      <div style="font-size: 11pt; line-height: 1.2;">
+      - Như trên;<br>
+      - Lưu: VT, TCHC.
+      </div>
+    </td>
+    <td style="width: 50%; text-align: center; vertical-align: top; font-size: 14pt;">
+      <b>GIÁM ĐỐC</b><br>
+      <i>(Chữ ký, dấu)</i><br><br><br><br>
+      <b>Nguyễn Trần Nhật Tuấn</b>
+    </td>
+  </tr>
+</table>
+
+Chỉ trả về mã HTML đã được chuẩn hóa, không giải thích thêm. 
+QUAN TRỌNG: 
+1. KHÔNG bọc kết quả trong block code markdown (ví dụ: \`\`\`html ... \`\`\`), chỉ trả về mã HTML thuần túy.
+2. KHÔNG trả về toàn bộ trang HTML (tuyệt đối không dùng thẻ <!DOCTYPE html>, <html>, <head>, <body>). Chỉ trả về các thẻ HTML chứa nội dung văn bản (như <div>, <table>, <p>, <b>, <i>...).
     """
     
     available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
